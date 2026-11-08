@@ -1,27 +1,33 @@
 # =====================================================================
 # Configuración del proyecto (actividad 2: pipeline y empaquetado).
 # Todo lo que puede cambiar vive aquí, no en el código.
-# Las rutas son relativas a la RAÍZ del repositorio (ejecuta todo desde ahí).
+# Las rutas son relativas a la carpeta actividad-2 (ejecuta todo desde ahí).
 # =====================================================================
 
 datos:
-  train: data/train.csv          # datos de entrenamiento
-  test: data/test.csv            # datos de evaluación (hold-out)
-  objetivo: Exited               # columna a predecir (binaria)
-  clase_positiva: 1              # valor del objetivo que significa "evento" (1, "Yes", "Si"...)
-  columnas_excluir:              # identificadores u otras columnas que NO entran al modelo
-    - RowNumber
-    - CustomerId
-    - Surname
+  separador: ";"                    # los CSV vienen separados por punto y coma
+  train: data/train.csv             # sep-2023 a dic-2025 (28 cortes mensuales), con Y
+  # Conjuntos de evaluación: NINGUNO se usa para entrenar. Cada modelo se evalúa en los dos,
+  # así 3 modelos x 2 conjuntos = 6 experimentos (runs) en MLflow.
+  evaluacion:
+    test1: data/test1_con_y.csv     # ene-jun 2026: elige el mejor modelo y decide el champion
+    test2: data/test2_con_y.csv     # jul-sep 2026: confirma con retiros reales
+  conjunto_seleccion: test1         # conjunto cuyo AUC decide el mejor modelo y el champion
+  conjunto_confirmacion: test2      # conjunto que debe superar `registro.auc_minimo_confirmacion`
+  objetivo: Y                       # 1 = el asociado se retira
+  clase_positiva: 1
+  columnas_id:                      # identifican la fila: no entran al modelo, pero se conservan en las predicciones
+    - FECHA_CORTE
+    - CODIGO_ASOCIADO
 
 # Selección de variables: el alias y la lista CUSTOM están en otro archivo.
 features:
   archivo: configs/features.yaml
 
 # ---------------------------------------------------------------------
-# Modelos candidatos. El flow entrena los 3, los evalúa con el mismo test
-# y solo el de mayor AUC ROC compite por ser `champion`.
+# Modelos candidatos. El flow entrena los 3 con train y los evalúa en test1 y test2.
 # Para desactivar uno, pon `activo: false`.
+# Solo ~2,2 % de Y = 1: los tres compensan el desbalance de clases.
 # ---------------------------------------------------------------------
 candidatos:
   - nombre: regresion_logistica
@@ -38,9 +44,9 @@ candidatos:
     activo: true
     parametros:
       n_estimators: 300
-      max_depth: 8
-      min_samples_leaf: 5
-      class_weight: balanced
+      max_depth: 10
+      min_samples_leaf: 20
+      class_weight: balanced_subsample
       n_jobs: -1
       random_state: 42
 
@@ -48,48 +54,51 @@ candidatos:
     tipo: xgboost
     activo: true
     parametros:
-      n_estimators: 300
+      n_estimators: 400
       learning_rate: 0.05
-      max_depth: 4
+      max_depth: 5
       subsample: 0.8
       colsample_bytree: 0.8
-      scale_pos_weight: 3.9     # ~ negativos/positivos: compensa el desbalance (como class_weight)
+      scale_pos_weight: 44      # ~ negativos/positivos en train (258.567 / 5.833)
       eval_metric: auc
       n_jobs: -1
       random_state: 42
 
 metricas:
-  umbral: 0.5                    # probabilidad a partir de la cual se predice la clase positiva
+  umbral: 0.5                    # probabilidad a partir de la cual se predice retiro (Y = 1)
 
 mlflow:
   tracking_uri: http://localhost:5000   # MLFLOW_TRACKING_URI, si existe, tiene prioridad
-  experimento: churn-actividad2         # experimento donde quedan los runs de entrenamiento e inferencia
+  experimento: retiro-asociados-actividad2
 
 # ---------------------------------------------------------------------
 # Registro en el Model Registry y reglas para ser `champion`.
-# El mejor modelo nuevo solo se registra y recibe el alias si:
-#   1) auc >= umbral_auc
-#   2) auc >= auc_champion_actual + mejora_minima
-#   3) recall >= recall_minimo  (criterio adicional del grupo)
+# El mejor modelo (mayor AUC en test1) solo se registra y recibe el alias si:
+#   1) auc_test1 >= umbral_auc
+#   2) recall_test1 >= recall_minimo
+#   3) auc_test2 >= auc_minimo_confirmacion   (se sostiene con retiros reales)
+#   4) auc_test1 >= auc_test1_del_champion + mejora_minima
 # ---------------------------------------------------------------------
 registro:
-  nombre_modelo: churn-modelo
+  nombre_modelo: retiro-asociados-modelo
   alias: champion
-  umbral_auc: 0.80
-  mejora_minima: 0.001
+  umbral_auc: 0.75
   recall_minimo: 0.50
+  auc_minimo_confirmacion: 0.70
+  mejora_minima: 0.001
 
 inferencia:
-  fuente: data/test.csv          # de aquí se toma el lote que simula clientes nuevos
-  tamano_lote: 200               # clientes por ejecución
-  semilla: null                  # null = lote distinto cada día; un número = lote reproducible
-  carpeta_salida: predicciones   # se guarda predicciones/prediccion_AAAA-MM-DD.csv
+  fuente: data/test2_sin_y.csv          # asociados "nuevos" a puntuar (sin la Y)
+  etiquetas: data/test2_con_y.csv       # retiros reales para comparar; null si aún no se conocen
+  tamano_lote: null                     # null = todo el archivo; un número = muestra aleatoria de ese tamaño
+  semilla: null                         # solo aplica con muestra: null = lote distinto cada día
+  carpeta_salida: predicciones          # se guarda predicciones/prediccion_AAAA-MM-DD.csv
 
 despliegue:
-  entrenamiento: entrenamiento-manual     # sin horario: se lanza a mano
+  entrenamiento: entrenamiento-manual   # sin horario: se lanza a mano
   inferencia: inferencia-diaria
-  cron_inferencia: "0 6 * * *"            # todos los días a las 06:00
+  cron_inferencia: "0 6 * * *"          # todos los días a las 06:00
   zona_horaria: America/Bogota
 
 api:
-  titulo: API de churn (modelo champion)
+  titulo: API de retiro de asociados (modelo champion)

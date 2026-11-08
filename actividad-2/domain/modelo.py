@@ -111,13 +111,13 @@ def calcular_metricas(y_true, proba, umbral=0.5):
     }
 
 
-def figura_roc(y_true, probas_por_modelo):
+def figura_roc(y_true, probas_por_modelo, titulo="Curva ROC"):
     """Curva ROC de uno o varios modelos en la misma figura. probas_por_modelo = {nombre: proba}."""
     fig, ax = plt.subplots(figsize=(6, 5))
     for nombre, proba in probas_por_modelo.items():
         RocCurveDisplay.from_predictions(y_true, proba, name=nombre, ax=ax)
     ax.plot([0, 1], [0, 1], linestyle="--", color="grey", linewidth=1)
-    ax.set_title("Curva ROC (conjunto de test)")
+    ax.set_title(titulo)
     fig.tight_layout()
     return fig
 
@@ -153,11 +153,13 @@ def elegir_mejor(resultados, recall_minimo=None):
     return max(aptos or resultados, key=lambda r: r["metricas"]["auc"])
 
 
-def decidir_promocion(metricas, auc_champion, reglas):
+def decidir_promocion(metricas, auc_champion, reglas, metricas_confirmacion=None):
     """Decide si el modelo nuevo reemplaza al champion. Devuelve (promover: bool, motivo: str).
 
-    reglas = sección `registro` de config.yaml (umbral_auc, mejora_minima, recall_minimo).
-    auc_champion = AUC del champion vigente, o None si todavía no hay champion.
+    metricas              = métricas del conjunto de selección (test1).
+    metricas_confirmacion = métricas del conjunto de confirmación (test2), o None si no hay.
+    auc_champion          = AUC (en el conjunto de selección) del champion vigente, o None si no hay.
+    reglas                = sección `registro` de config.yaml.
     """
     auc = metricas["auc"]
     umbral = reglas["umbral_auc"]
@@ -167,6 +169,13 @@ def decidir_promocion(metricas, auc_champion, reglas):
     recall_min = reglas.get("recall_minimo")
     if recall_min is not None and metricas["recall"] < recall_min:
         return False, f"recall {metricas['recall']:.4f} por debajo del mínimo {recall_min}"
+
+    auc_conf_min = reglas.get("auc_minimo_confirmacion")
+    if auc_conf_min is not None and metricas_confirmacion is not None:
+        if metricas_confirmacion["auc"] < auc_conf_min:
+            return False, (
+                f"AUC de confirmación {metricas_confirmacion['auc']:.4f} por debajo del mínimo {auc_conf_min}"
+            )
 
     if auc_champion is None:
         return True, f"no había champion y AUC {auc:.4f} supera el mínimo {umbral}"

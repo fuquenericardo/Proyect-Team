@@ -1,6 +1,6 @@
 """Actividad 2: API de inferencia con FastAPI. Sirve el modelo con el alias `champion` de MLflow.
 
-Ejecución (desde la raíz del repositorio, con MLFLOW_TRACKING_URI definida):
+Ejecución (desde la carpeta actividad-2, con MLFLOW_TRACKING_URI definida):
     poetry run uvicorn infraestructure.api.main:app --port 8000
 
 Documentación interactiva (Swagger): http://localhost:8000/docs
@@ -50,9 +50,10 @@ TIPOS = {"long": int, "integer": int, "double": float, "float": float, "boolean"
 
 
 def _ejemplo():
-    """Primer cliente del CSV de test como ejemplo para /docs (si el archivo existe)."""
+    """Primer asociado del lote de inferencia como ejemplo para /docs (si el archivo existe)."""
     try:
-        fila = pd.read_csv(cfg["datos"]["test"], nrows=1)[COLUMNAS].iloc[0]
+        fila = pd.read_csv(cfg["inferencia"]["fuente"], sep=cfg["datos"].get("separador", ","), nrows=1)
+        fila = fila[COLUMNAS].iloc[0]
         return {c: (v.item() if hasattr(v, "item") else v) for c, v in fila.items()}
     except Exception:
         return None
@@ -63,17 +64,18 @@ campos = {}
 for col in esquema.inputs:
     tipo = TIPOS.get(str(col.type).split(".")[-1].lower(), str)
     nombre_py = re.sub(r"\W+", "_", col.name).strip("_") or "col"
-    campos[nombre_py] = (tipo, Field(alias=col.name))
+    # Obligatorio pero admite null: un dato faltante (p. ej. ESTADO_CIVIL vacío) lo imputa el pipeline.
+    campos[nombre_py] = (tipo | None, Field(alias=col.name))
 
-Cliente = create_model(
-    "Cliente",
+Asociado = create_model(
+    "Asociado",
     __config__=ConfigDict(populate_by_name=True, extra="ignore", json_schema_extra={"example": EJEMPLO}),
     **campos,
 )
 
 
 class Prediccion(BaseModel):
-    probabilidad: float
+    probabilidad_retiro: float
     prediccion: int
     modelo: str
     version_modelo: str
@@ -94,7 +96,7 @@ def _predecir(registros):
     proba = modelo.predict_proba(datos)[:, 1]
     return [
         Prediccion(
-            probabilidad=round(float(p), 4),
+            probabilidad_retiro=round(float(p), 4),
             prediccion=int(p >= UMBRAL),
             modelo=NOMBRE,
             version_modelo=str(version_info.version),
@@ -123,17 +125,17 @@ def info_modelo():
 
 
 @app.post("/predict", response_model=Prediccion)
-def predict(cliente: Cliente):
-    """Predice para un cliente. Recibe las columnas originales del CSV (ver ejemplo)."""
+def predict(asociado: Asociado):
+    """Predice el riesgo de retiro de un asociado. Recibe las columnas originales del CSV (ver ejemplo)."""
     try:
-        return _predecir([cliente.model_dump(by_alias=True)])[0]
+        return _predecir([asociado.model_dump(by_alias=True)])[0]
     except Exception as e:  # datos con formato inesperado
         raise HTTPException(status_code=422, detail=str(e)) from e
 
 
 @app.post("/predict/lote", response_model=list[Prediccion])
-def predict_lote(clientes: list[Cliente]):
-    """Predice para varios clientes en una sola llamada."""
-    if not clientes:
-        raise HTTPException(status_code=422, detail="La lista de clientes está vacía")
-    return _predecir([c.model_dump(by_alias=True) for c in clientes])
+def predict_lote(asociados: list[Asociado]):
+    """Predice para varios asociados en una sola llamada."""
+    if not asociados:
+        raise HTTPException(status_code=422, detail="La lista de asociados está vacía")
+    return _predecir([a.model_dump(by_alias=True) for a in asociados])

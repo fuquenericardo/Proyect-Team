@@ -14,7 +14,7 @@ from domain.modelo import (
     resolver_features,
 )
 
-REGLAS = {"umbral_auc": 0.80, "mejora_minima": 0.001, "recall_minimo": 0.5}
+REGLAS = {"umbral_auc": 0.75, "mejora_minima": 0.001, "recall_minimo": 0.5, "auc_minimo_confirmacion": 0.70}
 
 
 @pytest.fixture
@@ -60,7 +60,12 @@ def test_promocion_sin_champion():
 
 
 def test_no_promueve_bajo_el_minimo():
-    assert not decidir_promocion({"auc": 0.75, "recall": 0.7}, None, REGLAS)[0]
+    assert not decidir_promocion({"auc": 0.70, "recall": 0.7}, None, REGLAS)[0]
+
+
+def test_no_promueve_si_no_se_confirma_en_test2():
+    assert not decidir_promocion({"auc": 0.85, "recall": 0.7}, None, REGLAS, {"auc": 0.65, "recall": 0.6})[0]
+    assert decidir_promocion({"auc": 0.85, "recall": 0.7}, None, REGLAS, {"auc": 0.80, "recall": 0.6})[0]
 
 
 def test_no_promueve_si_no_mejora_al_champion():

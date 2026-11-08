@@ -1,7 +1,7 @@
 """Lectura de la configuración (configs/config.yaml y configs/features.yaml).
 
 Las rutas se resuelven desde la carpeta donde ejecutas el comando:
-ejecuta siempre desde la raíz del repositorio.
+ejecuta siempre desde la carpeta actividad-2.
 """
 import os
 

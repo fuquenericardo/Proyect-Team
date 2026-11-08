@@ -11,3 +11,6 @@ mlflow_store/
 
 # Salidas de la inferencia diaria (se regeneran)
 predicciones/*.csv
+
+# Datos reales de asociados: no se suben a GitHub (ver data/LEEME.md)
+data/*.csv
