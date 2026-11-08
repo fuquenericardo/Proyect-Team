@@ -1,0 +1,33 @@
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[project]
+name = "mlops-churn"
+version = "0.2.0"
+description = "Actividad 2: pipelines de entrenamiento e inferencia (Prefect + MLflow) y API (FastAPI)"
+requires-python = ">=3.12,<3.15"
+dependencies = [
+    "prefect==3.8.8",
+    "mlflow==3.17.0",
+    "scikit-learn==1.9.1",
+    "pandas==3.0.6",
+    "numpy==2.5.4",
+    "pyyaml==6.0.3",
+    "xgboost==3.4.1",
+    "skops==0.16.0",
+    "matplotlib==3.11.2",
+    "fastapi==0.143.0",
+    "uvicorn==0.54.0",
+]
+
+[tool.poetry]
+package-mode = true
+packages = [{ include = "domain" }, { include = "infraestructure" }, { include = "scripts" }]
+
+[tool.poetry.group.dev.dependencies]
+pytest = "9.1.1"
+httpx = "0.28.1"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

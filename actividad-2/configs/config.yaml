@@ -1,0 +1,95 @@
+# =====================================================================
+# Configuración del proyecto (actividad 2: pipeline y empaquetado).
+# Todo lo que puede cambiar vive aquí, no en el código.
+# Las rutas son relativas a la RAÍZ del repositorio (ejecuta todo desde ahí).
+# =====================================================================
+
+datos:
+  train: data/train.csv          # datos de entrenamiento
+  test: data/test.csv            # datos de evaluación (hold-out)
+  objetivo: Exited               # columna a predecir (binaria)
+  clase_positiva: 1              # valor del objetivo que significa "evento" (1, "Yes", "Si"...)
+  columnas_excluir:              # identificadores u otras columnas que NO entran al modelo
+    - RowNumber
+    - CustomerId
+    - Surname
+
+# Selección de variables: el alias y la lista CUSTOM están en otro archivo.
+features:
+  archivo: configs/features.yaml
+
+# ---------------------------------------------------------------------
+# Modelos candidatos. El flow entrena los 3, los evalúa con el mismo test
+# y solo el de mayor AUC ROC compite por ser `champion`.
+# Para desactivar uno, pon `activo: false`.
+# ---------------------------------------------------------------------
+candidatos:
+  - nombre: regresion_logistica
+    tipo: logistic_regression
+    activo: true
+    parametros:
+      C: 1.0
+      max_iter: 2000
+      class_weight: balanced
+      random_state: 42
+
+  - nombre: random_forest
+    tipo: random_forest
+    activo: true
+    parametros:
+      n_estimators: 300
+      max_depth: 8
+      min_samples_leaf: 5
+      class_weight: balanced
+      n_jobs: -1
+      random_state: 42
+
+  - nombre: xgboost
+    tipo: xgboost
+    activo: true
+    parametros:
+      n_estimators: 300
+      learning_rate: 0.05
+      max_depth: 4
+      subsample: 0.8
+      colsample_bytree: 0.8
+      scale_pos_weight: 3.9     # ~ negativos/positivos: compensa el desbalance (como class_weight)
+      eval_metric: auc
+      n_jobs: -1
+      random_state: 42
+
+metricas:
+  umbral: 0.5                    # probabilidad a partir de la cual se predice la clase positiva
+
+mlflow:
+  tracking_uri: http://localhost:5000   # MLFLOW_TRACKING_URI, si existe, tiene prioridad
+  experimento: churn-actividad2         # experimento donde quedan los runs de entrenamiento e inferencia
+
+# ---------------------------------------------------------------------
+# Registro en el Model Registry y reglas para ser `champion`.
+# El mejor modelo nuevo solo se registra y recibe el alias si:
+#   1) auc >= umbral_auc
+#   2) auc >= auc_champion_actual + mejora_minima
+#   3) recall >= recall_minimo  (criterio adicional del grupo)
+# ---------------------------------------------------------------------
+registro:
+  nombre_modelo: churn-modelo
+  alias: champion
+  umbral_auc: 0.80
+  mejora_minima: 0.001
+  recall_minimo: 0.50
+
+inferencia:
+  fuente: data/test.csv          # de aquí se toma el lote que simula clientes nuevos
+  tamano_lote: 200               # clientes por ejecución
+  semilla: null                  # null = lote distinto cada día; un número = lote reproducible
+  carpeta_salida: predicciones   # se guarda predicciones/prediccion_AAAA-MM-DD.csv
+
+despliegue:
+  entrenamiento: entrenamiento-manual     # sin horario: se lanza a mano
+  inferencia: inferencia-diaria
+  cron_inferencia: "0 6 * * *"            # todos los días a las 06:00
+  zona_horaria: America/Bogota
+
+api:
+  titulo: API de churn (modelo champion)
