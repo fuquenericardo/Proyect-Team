@@ -1,158 +1,31 @@
-# \# Proyect-Team – MLOps
+# Proyect-Team – MLOps
 
-# 
+Proyecto del curso de MLOps (Maestría en Ciencia de Datos). Cada actividad es un proyecto de Poetry independiente dentro de este repositorio.
 
-# Proyecto del curso de MLOps (Maestría en Ciencia de Datos).
+## Estructura
 
-# 
+```
+Proyect-Team/
+├── actividad-1/   # Fundamentos: estructura, entorno con Poetry y primeros flows
+├── actividad-2/   # Pipelines de entrenamiento e inferencia (Prefect + MLflow) y API (FastAPI)
+├── services/      # MLflow y Prefect (Docker Compose o sin Docker), compartidos por todas las actividades
+└── .gitignore
+```
 
-# \## Requisitos
+## Uso
 
-# 
+1. Levanta los servicios desde `services/` (ver `services/README.md`).
+2. Entra en la carpeta de la actividad y crea su entorno:
 
-# \- Git
+```powershell
+cd actividad-2
+poetry install
+```
 
-# \- Python 3.13 o 3.14
+Los comandos de cada actividad se ejecutan desde su propia carpeta; ver el README de cada una.
 
-# \- Poetry
+## Integrantes
 
-# 
-
-# \## Estructura del proyecto
-
-# 
-
-# ```
-
-# Proyect-Team/
-
-# ├── configs/        # Archivos de configuración (YAML)
-
-# ├── docs/           # Documentación
-
-# ├── flows/          # Flujos de Prefect
-
-# ├── notebooks/      # Notebooks de exploración
-
-# ├── scripts/        # Scripts de Python
-
-# ├── tests/          # Pruebas con pytest
-
-# ├── pyproject.toml  # Dependencias del proyecto
-
-# ├── poetry.lock     # Versiones exactas de las dependencias
-
-# └── README.md
-
-# ```
-
-# 
-
-# \## Pasos de ejecución
-
-# 
-
-# \### 1. Clonar el repositorio
-
-# 
-
-# ```bash
-
-# git clone https://github.com/fuquenericardo/Proyect-Team.git
-
-# cd Proyect-Team
-
-# ```
-
-# 
-
-# \### 2. Instalar Poetry (si no lo tienes)
-
-# 
-
-# ```bash
-
-# pip install poetry
-
-# ```
-
-# 
-
-# \### 3. Instalar las dependencias
-
-# 
-
-# ```bash
-
-# poetry install
-
-# ```
-
-# 
-
-# Esto crea el entorno virtual e instala las versiones exactas que están en `poetry.lock`.
-
-# 
-
-# \### 4. Verificar la instalación
-
-# 
-
-# ```bash
-
-# poetry --version
-
-# poetry env info
-
-# poetry show --top-level
-
-# ```
-
-# 
-
-# \### 5. Ejecutar las pruebas
-
-# 
-
-# ```bash
-
-# poetry run pytest
-
-# ```
-
-# 
-
-# \## Dependencias
-
-# 
-
-# | Paquete      | Versión |
-
-# |--------------|---------|
-
-# | prefect      | 3.8.8   |
-
-# | mlflow       | 3.17.0  |
-
-# | scikit-learn | 1.9.1   |
-
-# | pandas       | 3.0.6   |
-
-# | numpy        | 2.5.4   |
-
-# | pyyaml       | 6.0.3   |
-
-# | pytest (dev) | 9.1.1   |
-
-# 
-
-# \## Integrantes
-
-# 
-
-# \- Ricardo Fuquene
-
-# \- Katherine Barreto
-
-# \- Rafael Davila
-
+- Ricardo Fuquene
+- Katherine Barreto
+- Rafael Davila

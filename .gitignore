@@ -220,3 +220,11 @@ __marimo__/
 .streamlit/secrets.toml
 .venv/
 __pycache__/
+
+# MLflow local (bases de datos y artefactos: no se versionan)
+mlruns/
+mlflow.db
+mlflow_store/
+
+# Salidas de la inferencia diaria
+predicciones/*.csv
