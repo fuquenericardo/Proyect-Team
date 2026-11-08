@@ -12,7 +12,7 @@
 #   categóricas: GENERO, ESTADO_CIVIL
 # =====================================================================
 
-seleccion: CUSTOM
+seleccion: ALL
 
 custom:
   - EDAD
