@@ -1,0 +1,20 @@
+# Entorno y caches
+.venv/
+__pycache__/
+*.egg-info/
+.pytest_cache/
+
+# MLflow local
+mlruns/
+mlflow.db
+mlflow_store/
+
+# Salidas de la inferencia diaria (se regeneran)
+predicciones/*.csv
+
+# Datos reales de asociados: no se suben a GitHub (ver data/LEEME.md)
+data/*.csv
+
+# Actividad 3: lotes puntuados y reportes de drift (se regeneran)
+lotes/
+reports/

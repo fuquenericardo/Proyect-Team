@@ -1,0 +1,166 @@
+# =====================================================================
+# Configuración del proyecto (actividad 3: monitoreo, drift y tests).
+# Todo lo que puede cambiar vive aquí, no en el código.
+# Las rutas son relativas a la carpeta actividad-3 (ejecuta todo desde ahí).
+# =====================================================================
+
+datos:
+  separador: ";"                    # los CSV vienen separados por punto y coma
+  train: data/train.csv             # sep-2023 a dic-2025 (28 cortes mensuales), con Y
+  # Conjuntos de evaluación: NINGUNO se usa para entrenar. Cada modelo se evalúa en los dos,
+  # así 3 modelos x 2 conjuntos = 6 experimentos (runs) en MLflow.
+  evaluacion:
+    test1: data/test1_con_y.csv     # ene-jun 2026: elige el mejor modelo y decide el champion
+    test2: data/test2_con_y.csv     # jul-sep 2026: confirma con retiros reales
+  conjunto_seleccion: test1         # conjunto cuyo AUC decide el mejor modelo y el champion
+  conjunto_confirmacion: test2      # conjunto que debe superar `registro.auc_minimo_confirmacion`
+  objetivo: Y                       # 1 = el asociado se retira
+  clase_positiva: 1
+  columnas_id:                      # identifican la fila: no entran al modelo, pero se conservan en las predicciones
+    - FECHA_CORTE
+    - CODIGO_ASOCIADO
+
+# Selección de variables: el alias y la lista CUSTOM están en otro archivo.
+features:
+  archivo: configs/features.yaml
+
+# ---------------------------------------------------------------------
+# Modelos candidatos. El flow entrena los 3 con train y los evalúa en test1 y test2.
+# Para desactivar uno, pon `activo: false`.
+# Solo ~2,2 % de Y = 1: los tres compensan el desbalance de clases.
+# ---------------------------------------------------------------------
+candidatos:
+  - nombre: regresion_logistica
+    tipo: logistic_regression
+    activo: true
+    parametros:
+      C: 1.0
+      max_iter: 2000
+      class_weight: balanced
+      random_state: 42
+
+  - nombre: random_forest
+    tipo: random_forest
+    activo: true
+    parametros:
+      n_estimators: 300
+      max_depth: 10
+      min_samples_leaf: 20
+      class_weight: balanced_subsample
+      n_jobs: -1
+      random_state: 42
+
+  - nombre: xgboost
+    tipo: xgboost
+    activo: true
+    parametros:
+      n_estimators: 400
+      learning_rate: 0.05
+      max_depth: 5
+      subsample: 0.8
+      colsample_bytree: 0.8
+      scale_pos_weight: 44      # ~ negativos/positivos en train (258.567 / 5.833)
+      eval_metric: auc
+      n_jobs: -1
+      random_state: 42
+
+metricas:
+  umbral: 0.5                    # probabilidad a partir de la cual se predice retiro (Y = 1)
+
+mlflow:
+  tracking_uri: http://localhost:5000   # MLFLOW_TRACKING_URI, si existe, tiene prioridad
+  experimento: retiro-asociados-actividad3
+
+# ---------------------------------------------------------------------
+# Registro en el Model Registry y reglas para ser `champion`.
+# El mejor modelo (mayor AUC en test1) solo se registra y recibe el alias si:
+#   1) auc_test1 >= umbral_auc
+#   2) recall_test1 >= recall_minimo
+#   3) auc_test2 >= auc_minimo_confirmacion   (se sostiene con retiros reales)
+#   4) auc_test1 >= auc_test1_del_champion + mejora_minima
+# ---------------------------------------------------------------------
+registro:
+  nombre_modelo: retiro-asociados-modelo
+  alias: champion
+  umbral_auc: 0.75
+  recall_minimo: 0.50
+  auc_minimo_confirmacion: 0.70
+  mejora_minima: 0.001
+
+# ---------------------------------------------------------------------
+# Inferencia CON DRIFT EMULADO (Tarea 1). El nivel NO se pasa al ejecutar: se cambia aquí.
+# El lote sale de la parte de prueba (test2, con la Y real: en producción la Y llega con retraso).
+# ---------------------------------------------------------------------
+inferencia:
+  fuente: data/test2_con_y.csv          # parte de prueba del dataset (jul-sep 2026), con etiquetas
+  tamano_lote: 2000                     # asociados por lote
+  semilla: 42                           # misma semilla = mismo lote base, así 0.0 / 0.3 / 0.6 solo difieren por el drift
+  nivel_drift: 0.6                      # 0.0 = sin drift; probar 0.0, 0.3 y 0.6 (rango 0.0 a 1.0)
+  carpeta_salida: predicciones          # predicciones/prediccion_<fecha>_drift-<nivel>.csv
+
+drift_emulado:
+  desviaciones: 2.0                     # cuánto se desplaza cada variable elegida (en desviaciones típicas)
+  subida_tasa_maxima: 0.10              # con nivel 1.0 la tasa de retiro sube 10 puntos (0.6 -> +6 puntos)
+
+# ---------------------------------------------------------------------
+# Detección de drift (Tarea 2)
+# ---------------------------------------------------------------------
+monitoreo:
+  carpeta_lotes: lotes                  # copia de cada lote puntuado: lotes/lote_<fecha-hora>_drift-<nivel>.csv
+  lote_actual: lotes/lote_actual.csv    # último lote puntuado: es el que leen los flows de drift por defecto
+  referencia_muestra: 20000             # filas de train usadas como referencia (muestra con semilla, por velocidad)
+  umbral_drift: 0.40                    # ALERTA si la fracción de variables con drift supera este valor
+  alfa_evento: 0.05                     # ALERTA de evento si el p-valor del test chi-cuadrado es menor
+  carpeta_reportes: reports             # reportes HTML/JSON de Evidently y resumen del drift de evento
+  registrar_en_mlflow: true             # guarda un run fase = monitoreo con métricas y reporte (si MLflow responde)
+
+# ---------------------------------------------------------------------
+# Tests de datos (Tarea 3): esquema, rangos y nulos esperados
+# ---------------------------------------------------------------------
+validacion:
+  columnas:
+    - FECHA_CORTE
+    - CODIGO_ASOCIADO
+    - EDAD
+    - GENERO
+    - ANTIGUEDAD
+    - ESTADO_CIVIL
+    - SALARIO
+    - SALDO_APORTE_SOCIAL
+    - SALDO_AHORRO_PERMANENTE
+    - SALDO_AHO_VISTA
+    - SALDO_AHORRO_PROGRAMADO
+    - SALDO_CARTERA
+    - CANTIDAD_CREDITOS
+    - CANT_SERV_COMPLEMENT
+    - CANT_TRANSACCIONES
+  rangos:                               # [mínimo, máximo]; null = sin límite
+    # SALDO_AHORRO_PROGRAMADO y SALDO_CARTERA no llevan rango: traen negativos reales (ajustes contables)
+    EDAD: [0, 120]
+    ANTIGUEDAD: [0, 100]
+    SALARIO: [0, null]
+    SALDO_APORTE_SOCIAL: [0, null]
+    SALDO_AHORRO_PERMANENTE: [0, null]
+    SALDO_AHO_VISTA: [0, null]
+    CANTIDAD_CREDITOS: [0, null]
+    CANT_SERV_COMPLEMENT: [0, null]
+    CANT_TRANSACCIONES: [0, null]
+  categorias:
+    GENERO: [FEMENINO, MASCULINO]
+  nulos_maximos:                        # fracción máxima de vacíos permitida; las demás columnas: 0
+    ESTADO_CIVIL: 0.02
+    SALARIO: 0.02
+    EDAD: 0.001                         # test2 trae 5 EDAD vacías (hallazgo del test de datos); el pipeline las imputa
+
+despliegue:
+  entrenamiento: entrenamiento-manual   # sin horario: se lanza a mano
+  inferencia: inferencia-diaria
+  cron_inferencia: "0 6 * * *"          # todos los días a las 06:00
+  drift_features: drift-features-diario
+  cron_drift_features: "15 6 * * *"     # 06:15, después de la inferencia
+  drift_evento: drift-evento-diario
+  cron_drift_evento: "20 6 * * *"       # 06:20
+  zona_horaria: America/Bogota
+
+api:
+  titulo: API de retiro de asociados (modelo champion)
