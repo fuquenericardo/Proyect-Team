@@ -1,0 +1,26 @@
+name: Tests actividad 3
+
+# Ejecuta los tests de actividad-3 en cada pull request y en cada push a main.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+defaults:
+  run:
+    working-directory: actividad-3
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Instalar Poetry
+        run: pip install poetry
+      - name: Instalar dependencias
+        run: poetry install --no-interaction
+      - name: Tests (los de datos reales se saltan: los CSV no están en Git)
+        run: poetry run pytest

@@ -1,0 +1,25 @@
+# =====================================================================
+# Selección de variables del experimento.
+#   ALL     -> todas las variables (numéricas y categóricas), sin las columnas_id
+#   NUMERIC -> solo las variables numéricas
+#   CUSTOM  -> solo las que listes en `custom` (nombres exactos del CSV)
+# Cada run registra en MLflow el alias (`features`) y el número de variables (`n_features`).
+#
+# Variables disponibles (13):
+#   numéricas:   EDAD, ANTIGUEDAD, SALARIO, SALDO_APORTE_SOCIAL, SALDO_AHORRO_PERMANENTE,
+#                SALDO_AHO_VISTA, SALDO_AHORRO_PROGRAMADO, SALDO_CARTERA, CANTIDAD_CREDITOS,
+#                CANT_SERV_COMPLEMENT, CANT_TRANSACCIONES
+#   categóricas: GENERO, ESTADO_CIVIL
+# =====================================================================
+
+seleccion: ALL
+
+custom:
+  - EDAD
+  - ANTIGUEDAD
+  - SALARIO
+  - SALDO_APORTE_SOCIAL
+  - SALDO_AHO_VISTA
+  - SALDO_CARTERA
+  - CANT_TRANSACCIONES
+  - ESTADO_CIVIL
