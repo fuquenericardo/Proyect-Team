@@ -22,5 +22,5 @@ jobs:
         run: pip install poetry
       - name: Instalar dependencias
         run: poetry install --no-interaction
-      - name: Tests (los de datos reales se saltan: los CSV no están en Git)
+      - name: "Tests (los de datos reales se saltan porque los CSV no están en Git)"
         run: poetry run pytest
